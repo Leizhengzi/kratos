@@ -59,7 +59,6 @@ func (w *responseWriter) Write(data []byte) (int, error) {
 type wrapper struct {
 	router *Router
 	req    *http.Request
-	res    http.ResponseWriter
 	w      responseWriter
 }
 
@@ -87,7 +86,7 @@ func (c *wrapper) Query() url.Values {
 	return c.req.URL.Query()
 }
 func (c *wrapper) Request() *http.Request        { return c.req }
-func (c *wrapper) Response() http.ResponseWriter { return c.res }
+func (c *wrapper) Response() http.ResponseWriter { return c.w.w }
 func (c *wrapper) Middleware(h middleware.Handler) middleware.Handler {
 	return middleware.Chain(c.router.srv.ms...)(h)
 }
@@ -108,21 +107,21 @@ func (c *wrapper) Result(code int, v interface{}) error {
 }
 
 func (c *wrapper) JSON(code int, v interface{}) error {
-	c.res.Header().Set("Content-Type", "application/json")
-	c.res.WriteHeader(code)
-	return json.NewEncoder(c.res).Encode(v)
+	c.w.Header().Set("Content-Type", "application/json")
+	c.w.WriteHeader(code)
+	return json.NewEncoder(&c.w).Encode(v)
 }
 
 func (c *wrapper) XML(code int, v interface{}) error {
-	c.res.Header().Set("Content-Type", "application/xml")
-	c.res.WriteHeader(code)
-	return xml.NewEncoder(c.res).Encode(v)
+	c.w.Header().Set("Content-Type", "application/xml")
+	c.w.WriteHeader(code)
+	return xml.NewEncoder(&c.w).Encode(v)
 }
 
 func (c *wrapper) String(code int, text string) error {
-	c.res.Header().Set("Content-Type", "text/plain")
-	c.res.WriteHeader(code)
-	_, err := c.res.Write([]byte(text))
+	c.w.Header().Set("Content-Type", "text/plain")
+	c.w.WriteHeader(code)
+	_, err := c.w.Write([]byte(text))
 	if err != nil {
 		return err
 	}
@@ -130,9 +129,9 @@ func (c *wrapper) String(code int, text string) error {
 }
 
 func (c *wrapper) Blob(code int, contentType string, data []byte) error {
-	c.res.Header().Set("Content-Type", contentType)
-	c.res.WriteHeader(code)
-	_, err := c.res.Write(data)
+	c.w.Header().Set("Content-Type", contentType)
+	c.w.WriteHeader(code)
+	_, err := c.w.Write(data)
 	if err != nil {
 		return err
 	}
@@ -140,15 +139,14 @@ func (c *wrapper) Blob(code int, contentType string, data []byte) error {
 }
 
 func (c *wrapper) Stream(code int, contentType string, rd io.Reader) error {
-	c.res.Header().Set("Content-Type", contentType)
-	c.res.WriteHeader(code)
-	_, err := io.Copy(c.res, rd)
+	c.w.Header().Set("Content-Type", contentType)
+	c.w.WriteHeader(code)
+	_, err := io.Copy(&c.w, rd)
 	return err
 }
 
 func (c *wrapper) Reset(res http.ResponseWriter, req *http.Request) {
 	c.w.rest(res)
-	c.res = res
 	c.req = req
 }
 

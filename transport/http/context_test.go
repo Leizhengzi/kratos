@@ -15,7 +15,6 @@ func TestContextHeader(t *testing.T) {
 	w := wrapper{
 		router: nil,
 		req:    &http.Request{Header: map[string][]string{"name": {"kratos"}}},
-		res:    nil,
 		w:      responseWriter{},
 	}
 	h := w.Header()
@@ -28,7 +27,6 @@ func TestContextForm(t *testing.T) {
 	w := wrapper{
 		router: nil,
 		req:    &http.Request{Header: map[string][]string{"name": {"kratos"}}, Method: "POST"},
-		res:    nil,
 		w:      responseWriter{},
 	}
 	form := w.Form()
@@ -39,7 +37,6 @@ func TestContextForm(t *testing.T) {
 	w = wrapper{
 		router: nil,
 		req:    &http.Request{Form: map[string][]string{"name": {"kratos"}}},
-		res:    nil,
 		w:      responseWriter{},
 	}
 	form = w.Form()
@@ -52,7 +49,6 @@ func TestContextQuery(t *testing.T) {
 	w := wrapper{
 		router: nil,
 		req:    &http.Request{URL: &url.URL{Scheme: "https", Host: "github.com", Path: "go-kratos/kratos", RawQuery: "page=1"}, Method: "POST"},
-		res:    nil,
 		w:      responseWriter{},
 	}
 	q := w.Query()
@@ -66,7 +62,6 @@ func TestContextRequest(t *testing.T) {
 	w := wrapper{
 		router: nil,
 		req:    req,
-		res:    nil,
 		w:      responseWriter{},
 	}
 	res := w.Request()
@@ -80,7 +75,6 @@ func TestContextResponse(t *testing.T) {
 	w := wrapper{
 		router: &Router{srv: &Server{enc: DefaultResponseEncoder}},
 		req:    &http.Request{Method: "POST"},
-		res:    res,
 		w:      responseWriter{200, res},
 	}
 	if !reflect.DeepEqual(w.Response(), res) {
@@ -96,7 +90,6 @@ func TestContextBindQuery(t *testing.T) {
 	w := wrapper{
 		router: nil,
 		req:    &http.Request{URL: &url.URL{Scheme: "https", Host: "go-kratos-dev", RawQuery: "page=2"}},
-		res:    nil,
 		w:      responseWriter{},
 	}
 	type BindQuery struct {
@@ -116,7 +109,6 @@ func TestContextBindForm(t *testing.T) {
 	w := wrapper{
 		router: nil,
 		req:    &http.Request{URL: &url.URL{Scheme: "https", Host: "go-kratos-dev"}, Form: map[string][]string{"page": {"2"}}},
-		res:    nil,
 		w:      responseWriter{},
 	}
 	type BindForm struct {
@@ -133,12 +125,12 @@ func TestContextBindForm(t *testing.T) {
 }
 
 func TestContextResponseReturn(t *testing.T) {
-	writer := httptest.NewRecorder()
 	w := wrapper{
 		router: nil,
 		req:    nil,
-		res:    writer,
-		w:      responseWriter{},
+		w: responseWriter{
+			w: httptest.NewRecorder(),
+		},
 	}
 	err := w.JSON(200, "success")
 	if err != nil {
@@ -170,7 +162,6 @@ func TestContextCtx(t *testing.T) {
 	w := wrapper{
 		router: &Router{srv: &Server{enc: DefaultResponseEncoder}},
 		req:    req,
-		res:    nil,
 		w:      responseWriter{},
 	}
 	_, ok := w.Deadline()
@@ -193,7 +184,6 @@ func TestContextCtx(t *testing.T) {
 	w = wrapper{
 		router: &Router{srv: &Server{enc: DefaultResponseEncoder}},
 		req:    nil,
-		res:    nil,
 		w:      responseWriter{},
 	}
 	_, ok = w.Deadline()
