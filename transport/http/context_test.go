@@ -203,3 +203,24 @@ func TestContextCtx(t *testing.T) {
 		t.Errorf("expected %v, got %v", nil, v)
 	}
 }
+
+func TestSetStatusCode(t *testing.T) {
+	res := httptest.NewRecorder()
+	w := wrapper{
+		router: &Router{srv: &Server{enc: DefaultResponseEncoder}},
+		req:    &http.Request{Method: "POST"},
+		w:      responseWriter{200, res},
+	}
+	if !reflect.DeepEqual(w.Response(), res) {
+		t.Errorf("expected %v, got %v", res, w.Response())
+	}
+	code := 201
+	SetStatusCode(&w, code)
+	err := w.Result(200, "nil")
+	if err != nil {
+		t.Errorf("expected %v, got %v", nil, err)
+	}
+	if w.w.code != code {
+		t.Errorf("expected %v, got %v", code, w.w.code)
+	}
+}

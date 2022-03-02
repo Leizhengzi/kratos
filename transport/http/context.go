@@ -40,6 +40,8 @@ type Context interface {
 	Reset(http.ResponseWriter, *http.Request)
 }
 
+type customerOperation func(ctx Context)
+
 type responseWriter struct {
 	code int
 	w    http.ResponseWriter
@@ -57,9 +59,10 @@ func (w *responseWriter) Write(data []byte) (int, error) {
 }
 
 type wrapper struct {
-	router *Router
-	req    *http.Request
-	w      responseWriter
+	router             *Router
+	req                *http.Request
+	w                  responseWriter
+	customerOperations []customerOperation
 }
 
 func (c *wrapper) Header() http.Header {
@@ -103,24 +106,44 @@ func (c *wrapper) Returns(v interface{}, err error) error {
 
 func (c *wrapper) Result(code int, v interface{}) error {
 	c.w.WriteHeader(code)
+	if len(c.customerOperations) != 0 {
+		for _, opt := range c.customerOperations {
+			opt(c)
+		}
+	}
 	return c.router.srv.enc(&c.w, c.req, v)
 }
 
 func (c *wrapper) JSON(code int, v interface{}) error {
 	c.w.Header().Set("Content-Type", "application/json")
 	c.w.WriteHeader(code)
+	if len(c.customerOperations) != 0 {
+		for _, opt := range c.customerOperations {
+			opt(c)
+		}
+	}
 	return json.NewEncoder(&c.w).Encode(v)
 }
 
 func (c *wrapper) XML(code int, v interface{}) error {
 	c.w.Header().Set("Content-Type", "application/xml")
 	c.w.WriteHeader(code)
+	if len(c.customerOperations) != 0 {
+		for _, opt := range c.customerOperations {
+			opt(c)
+		}
+	}
 	return xml.NewEncoder(&c.w).Encode(v)
 }
 
 func (c *wrapper) String(code int, text string) error {
 	c.w.Header().Set("Content-Type", "text/plain")
 	c.w.WriteHeader(code)
+	if len(c.customerOperations) != 0 {
+		for _, opt := range c.customerOperations {
+			opt(c)
+		}
+	}
 	_, err := c.w.Write([]byte(text))
 	if err != nil {
 		return err
@@ -131,6 +154,11 @@ func (c *wrapper) String(code int, text string) error {
 func (c *wrapper) Blob(code int, contentType string, data []byte) error {
 	c.w.Header().Set("Content-Type", contentType)
 	c.w.WriteHeader(code)
+	if len(c.customerOperations) != 0 {
+		for _, opt := range c.customerOperations {
+			opt(c)
+		}
+	}
 	_, err := c.w.Write(data)
 	if err != nil {
 		return err
@@ -141,6 +169,11 @@ func (c *wrapper) Blob(code int, contentType string, data []byte) error {
 func (c *wrapper) Stream(code int, contentType string, rd io.Reader) error {
 	c.w.Header().Set("Content-Type", contentType)
 	c.w.WriteHeader(code)
+	if len(c.customerOperations) != 0 {
+		for _, opt := range c.customerOperations {
+			opt(c)
+		}
+	}
 	_, err := io.Copy(&c.w, rd)
 	return err
 }
@@ -148,6 +181,7 @@ func (c *wrapper) Stream(code int, contentType string, rd io.Reader) error {
 func (c *wrapper) Reset(res http.ResponseWriter, req *http.Request) {
 	c.w.rest(res)
 	c.req = req
+	c.customerOperations = make([]customerOperation, 0)
 }
 
 func (c *wrapper) Deadline() (time.Time, bool) {
@@ -176,4 +210,14 @@ func (c *wrapper) Value(key interface{}) interface{} {
 		return nil
 	}
 	return c.req.Context().Value(key)
+}
+
+// SetStatusCode set http status code. Override the default one.
+func SetStatusCode(ctx context.Context, code int) {
+	if w, ok := ctx.(*wrapper); ok {
+		w.customerOperations = append(w.customerOperations, func(ctx Context) {
+			w2 := ctx.(*wrapper)
+			w2.w.WriteHeader(code)
+		})
+	}
 }
